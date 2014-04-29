@@ -20,18 +20,19 @@ module Hitbtc
     ###########################
 
     def server_time
-      hash = get_public 'time'
-      hash.timestamp
+      mash = get_public 'time'
+      mash.try(:timestamp)
     end
 
     def symbols(opts={}) #can specify array of string symbols
-      hash = get_public 'symbols'
-      if opts.empty?
-         hash.symbols
-      elsif opts.length == 1 || opts.class == String
-        hash.symbols.select{|h| opts.include?(h.symbol)}.first
+      mash = get_public 'symbols'
+      m = mash.try(:symbols)
+      if (opts.length == 1 || opts.class == String) && m != mash
+        m.select{|h| opts.include?(h.symbol)}.first
+      elsif !opts.empty? && m != mash
+        m.select{|h| opts.include?(h.symbol)}
       else
-        hash.symbols.select{|h| opts.include?(h.symbol)}
+        m
       end
     end
 
@@ -65,17 +66,21 @@ module Hitbtc
       #format_tid	optional          "string" or "number" (default)
       #format_timestamp	optional    "millisecond" (default) or "second"
       #format_wrap optional         "true" (default) or "false"
+      if by != "trade_id" && by != "ts"
+        raise "3rd parameter by, should be 'trade_id' or 'ts'"
+      end
       opts[:from] = from
-      opts[:by] = by
       opts[:start_index] = start_index
       opts[:max_results] = max_results
-      get_public(checked_symbol+'/trades', opts)
+      opts[:by] = by
+      mash= get_public(checked_symbol+'/trades', opts)
+      mash.try(:trades)
     end
 
     def get_public(method, opts={})
       url = 'http://'+ @base_uri + '/api/' + @api_version + '/public/' + method
-      r = self.class.get(url, opts)
-      hash = Hashie::Mash.new(JSON.parse(r.body))
+      r = self.class.get(url, query: opts)
+      mash = Hashie::Mash.new(JSON.parse(r.body))
     end
 
     ######################
@@ -141,8 +146,8 @@ module Hitbtc
       url = "https://" + @base_uri + url_path(method)
 
       r = self.class.get(url, opts)
-      hash = Hashie::Mash.new(JSON.parse(r.body))
-      hash[:result]
+      mash = Hashie::Mash.new(JSON.parse(r.body))
+      mash[:result]
     end
 
     def nonce
@@ -186,4 +191,14 @@ module Hitbtc
     # to be written
 
   end
+end
+
+class Hashie::Mash
+    def try key
+       if self.key?(key.to_s)
+         self[key]
+       else
+         self
+       end
+    end
 end
