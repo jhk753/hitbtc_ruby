@@ -140,7 +140,8 @@ module Hitbtc
     end
 
     #### Private User Trading (Still experimental!) ####
-    def create_order(opts={})
+    def create_order opts={}
+      opts[:clientOrderId] = Time.now.to_i.to_s
       post_private 'new_order', opts
     end
     ######################
@@ -157,13 +158,13 @@ module Hitbtc
     private
 
     def post_private(method, opts={})
-
       post_data = encode_options(opts)
-      signature = generate_signature(method, post_data)
-
-      url = "https://" + @base_uri + method
-      r = self.class.post(url, {body: signed_data}).parsed_response
-      r['error'].empty? ? Hashie::Mash.new(r['result']) : r['error']
+      uri = "/api/"+ @api_version + "/trading/" + method +"?" + "apikey=" + @api_key + "&nonce=" + nonce
+      url = "https://" + @base_uri + uri
+      signature = generate_signature(uri, post_data)
+      headers = {'X-Signature' => signature}
+      r = self.class.post(url, {headers: headers, body: post_data}).parsed_response
+      Hashie::Mash.new(r)
     end
 
     def get_private(method, opts={})
