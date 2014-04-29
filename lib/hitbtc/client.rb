@@ -50,7 +50,7 @@ module Hitbtc
       get_public(checked_symbol+"/orderbook", opts)
     end
 
-    def trades symbol, from, by, start_index, max_results, opts={}
+    def trades symbol, from = Time.now.to_i, by = "ts", start_index = 0, max_results = 1000, opts={}
       checked_symbol = check_symbol(symbol)
       #Parameter                    Type                            Description
       #from	required                int = trade_id or timestamp	    returns trades with trade_id > specified trade_id or returns trades with timestamp >= specified timestamp
@@ -80,31 +80,63 @@ module Hitbtc
     def get_public(method, opts={})
       url = 'http://'+ @base_uri + '/api/' + @api_version + '/public/' + method
       r = self.class.get(url, query: opts)
-      mash = Hashie::Mash.new(JSON.parse(r.body))
+      Hashie::Mash.new(JSON.parse(r.body))
     end
 
     ######################
     ##### Private Data ###
     ######################
 
-    def balance
-      get_private 'balance'
+    def balance opts={} #array of string currency
+      mash = get_private 'balance'
+      m = mash.try(:balance)
+      if opts.class == String
+        o = []
+        o << opts
+        opts = o
+      end
+      if m != mash && opts.length > 0
+        r= m.select{|c| opts.include?(c.currency_code)}
+        (r.length==1 ? r.first : r)
+      else
+        m
+      end
     end
 
-    def active_orders(opts={}) #symbols: string comma-delimeted list of symbols, optional, default - all symbols
-      get_private 'orders/active', opts
+    def active_orders opts={} #symbols: string comma-delimeted list of symbols, optional, default - all symbols
+      #example {:symbols=> "BTCEUR,BTCUSD"}
+      mash = get_private 'orders/active', opts
+      mash.try(:orders)
     end
 
-    def cancel_order(opts={})
-      get_private 'cancel_order', opts
+    def cancel_order client_order_id
+      orders = active_orders
+      order = orders.select{|o| o.orderId == client_order_id}.try(:first)
+      if order.nil?
+        "We didn't find the order for the specified ID"
+      else
+        opts = {}
+        opts[:clientOrderId] = order.orderId
+        opts[:cancelRequestClientOrderId] = Time.now.to_i.to_s
+        opts[:symbol] = order.symbol
+        opts[:side] = order.side
+        opts[:price] = order.orderPrice
+        opts[:quantity] = order.orderQuantity
+        opts[:type] = order.limit
+        opts[:timeInForce] = order.timeInForce
+
+        get_private 'cancel_order', opts
+      end
     end
 
-    def trade_history(opts={})
-      get_private 'trades', opts
+    def trade_history opts={by:"ts", start_index: 0, max_results: 10}
+      mash= get_private 'trades', opts
+      mash.try(:trades)
     end
 
-    def recent_orders(opts={})
-      get_private 'orders/recent'
+    def recent_orders opts={max_results: 10, start_index: 0, statuses: "new,partiallyFilled,filled,canceled,expired,rejected"}
+      mash = get_private 'orders/recent', opts
+      mash.try(:orders)
     end
 
     #### Private User Trading (Still experimental!) ####
@@ -125,33 +157,36 @@ module Hitbtc
     private
 
     def post_private(method, opts={})
-      opts['nonce'] = nonce
-      opts['apikey'] = @api_key
+
       post_data = encode_options(opts)
-      opts['signature'] = generate_signature(url_path(method), post_data)
+      signature = generate_signature(method, post_data)
 
-      signed_data = encode_options(opts)
-
-      url = "https://" + @base_uri + url_path(method)
-      r = self.class.post(url, { body: signed_data }).parsed_response
+      url = "https://" + @base_uri + method
+      r = self.class.post(url, {body: signed_data}).parsed_response
       r['error'].empty? ? Hashie::Mash.new(r['result']) : r['error']
     end
 
     def get_private(method, opts={})
-      opts['nonce'] = nonce
-      opts['apikey'] = @api_key
-      post_data = encode_options(opts)
-      opts['signature'] = generate_signature(url_path(method), post_data)
+      opts = complete_opts(opts)
+      uri = "/api/"+ @api_version + "/trading/" + method +"?" + encode_options(opts)
+      url = "https://" + @base_uri + uri
+      signature = generate_signature(uri, "")
+      headers = {'X-Signature' => signature}
 
-      url = "https://" + @base_uri + url_path(method)
 
-      r = self.class.get(url, opts)
+
+      r = self.class.get(url, {headers: headers})
       mash = Hashie::Mash.new(JSON.parse(r.body))
-      mash[:result]
+    end
+
+    def complete_opts opts
+      opts[:apikey] = @api_key
+      opts[:nonce] = nonce
+      opts
     end
 
     def nonce
-      Time.now.to_i.to_s.ljust(16,'0')
+      Time.now.to_i.to_s
     end
 
     def encode_options(opts)
@@ -160,22 +195,17 @@ module Hitbtc
       uri.query
     end
 
-    def generate_signature(method, post_data)
-      key = Base64.decode64(@api_secret)
-      message = generate_message(method, post_data)
-      generate_hmac(key, message).downcase
+    def generate_signature(uri, post_data)
+      message = generate_message(uri, post_data)
+      generate_hmac(@api_secret, message)
     end
 
-    def generate_message(method, data)
-      url_path(method) + data
+    def generate_message(uri, data)
+        uri + data
     end
 
     def generate_hmac(key, message)
-      Base64.strict_encode64(OpenSSL::HMAC.digest('sha512', key, message))
-    end
-
-    def url_path(method)
-      '/api/' + @api_version + '/trading/' + method
+      OpenSSL::HMAC.hexdigest('SHA512', key, message).downcase
     end
 
     def check_symbol symbol
@@ -184,6 +214,11 @@ module Hitbtc
       end
       symbol.upcase
     end
+
+    def random_string
+
+    end
+
     ##################################
     ##### Realtime with web socket ###
     ##################################
