@@ -10,8 +10,7 @@ Gem::Specification.new do |spec|
   spec.email         = ["julien.hobeika@gmail.com"]
   spec.description   = %q{"Wrapper for hitbtc Exchange API"}
   spec.summary       = %q{"Wrapper for hitbtc Exchange API"}
-  spec.homepage      = "http://hitbtc-com.github.io/hitbtc-api/"
-  spec.license       = "MIT"
+  spec.homepage      = "https://github.com/jhk753/hitbtc_ruby"
 
   spec.files         = `git ls-files`.split($/)
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
