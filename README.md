@@ -24,6 +24,11 @@ Size representation:
 - Solid trade execution functionality
 - payment api
 
+Don't hesitate to contribute.
+If you liked it:
+BTC: 1PizgAWLJbwEsNWG9Cf27skcbgbgZGgeyK
+LTC: LQtM1t6BRd64scsdSBk8nnCLJuc8Qfhm53
+
 ## Installation
 
 Add this line to your application's Gemfile:
