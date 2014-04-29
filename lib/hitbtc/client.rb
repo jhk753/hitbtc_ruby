@@ -50,7 +50,7 @@ module Hitbtc
       get_public(checked_symbol+"/orderbook", opts)
     end
 
-    def trades symbol, from = Time.now.to_i, by = "ts", start_index = 0, max_results = 1000, opts={}
+    def trades symbol, from = (Time.now - 1.day).to_i, by = "ts", start_index = 0, max_results = 1000, opts={}
       checked_symbol = check_symbol(symbol)
       #Parameter                    Type                            Description
       #from	required                int = trade_id or timestamp	    returns trades with trade_id > specified trade_id or returns trades with timestamp >= specified timestamp
