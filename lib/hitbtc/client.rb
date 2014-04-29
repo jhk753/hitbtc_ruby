@@ -20,11 +20,19 @@ module Hitbtc
     ###########################
 
     def server_time
-      get_public 'time'
+      hash = get_public 'time'
+      hash.timestamp
     end
 
-    def symbols
-      get_public 'symbols'
+    def symbols(opts={}) #can specify array of string symbols
+      hash = get_public 'symbols'
+      if opts.empty?
+         hash.symbols
+      elsif opts.length == 1 || opts.class == String
+        hash.symbols.select{|h| opts.include?(h.symbol)}.first
+      else
+        hash.symbols.select{|h| opts.include?(h.symbol)}
+      end
     end
 
     def ticker symbol
@@ -59,9 +67,9 @@ module Hitbtc
 
     def get_public(method, opts={})
       url = 'http://'+ @base_uri + '/api/' + @api_version + '/public/' + method
+      p url
       r = self.class.get(url, opts)
       hash = Hashie::Mash.new(JSON.parse(r.body))
-      hash[:result]
     end
 
     ######################
