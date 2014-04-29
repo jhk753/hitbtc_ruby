@@ -36,18 +36,21 @@ module Hitbtc
     end
 
     def ticker symbol
-      get_public(symbol+"/ticker")
+      checked_symbol = check_symbol(symbol)
+      get_public(checked_symbol+"/ticker")
     end
 
     def order_book symbol, opts={}
+      checked_symbol = check_symbol(symbol)
       #opts optional
       #format_price: "string" (default) or "number"
       #format_amount: "string" (default) or "number"
       #format_amount_unit: "currency" (default) or "lot"
-      get_public(symbol+"/orderbook", opts)
+      get_public(checked_symbol+"/orderbook", opts)
     end
 
-    def trades symbol, opts={}
+    def trades symbol, from, by, start_index, max_results, opts={}
+      checked_symbol = check_symbol(symbol)
       #Parameter                    Type                            Description
       #from	required                int = trade_id or timestamp	    returns trades with trade_id > specified trade_id or returns trades with timestamp >= specified timestamp
       #till	optional                int = trade_id or timestamp	    returns trades with trade_id < specified trade_id or returns trades with timestamp < specified timestamp
@@ -62,12 +65,15 @@ module Hitbtc
       #format_tid	optional          "string" or "number" (default)
       #format_timestamp	optional    "millisecond" (default) or "second"
       #format_wrap optional         "true" (default) or "false"
-      get_public(symbol+'/trades', opts)
+      opts[:from] = from
+      opts[:by] = by
+      opts[:start_index] = start_index
+      opts[:max_results] = max_results
+      get_public(checked_symbol+'/trades', opts)
     end
 
     def get_public(method, opts={})
       url = 'http://'+ @base_uri + '/api/' + @api_version + '/public/' + method
-      p url
       r = self.class.get(url, opts)
       hash = Hashie::Mash.new(JSON.parse(r.body))
     end
@@ -167,7 +173,12 @@ module Hitbtc
       '/api/' + @api_version + '/trading/' + method
     end
 
-
+    def check_symbol symbol
+      if symbol.length != 6 || symbol.class != String
+        raise "You didn't enter a correct symbol, check symbols method to see list and enter symbol as a string"
+      end
+      symbol.upcase
+    end
     ##################################
     ##### Realtime with web socket ###
     ##################################
