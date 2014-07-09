@@ -187,7 +187,7 @@ module Hitbtc
     end
 
     def nonce
-      Time.now.to_i.to_s
+      DateTime.now.strftime('%Q')
     end
 
     def encode_options(opts)
